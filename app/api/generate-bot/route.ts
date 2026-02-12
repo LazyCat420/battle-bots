@@ -59,8 +59,9 @@ export async function POST(request: NextRequest) {
                 try {
                     parsed = extractJSON(llmResponse.content);
                     console.log(`[generate-bot] ✅ JSON parsed successfully`);
+                    console.log(`[generate-bot] Parsed keys:`, Object.keys(parsed as Record<string, unknown>));
                 } catch {
-                    lastError = `Could not parse your response as valid JSON. Output ONLY a raw JSON object, no markdown, no explanation.`;
+                    lastError = `Could not parse your response as valid JSON. Output ONLY a raw JSON object with these keys: name, shape, size, color, speed, armor, weapon, attackEffect, behaviorCode, strategyDescription. No markdown, no explanation.`;
                     console.log(`[generate-bot] ❌ JSON parse failed`);
                     continue;
                 }
@@ -68,21 +69,29 @@ export async function POST(request: NextRequest) {
                 // Validate against schema
                 const validation = validateBotDefinition(parsed);
                 if (!validation.valid) {
-                    lastError = `Schema errors: ${validation.errors.join("; ")}`;
+                    // Build field-specific error feedback so the LLM knows exactly what to fix
+                    const fieldErrors = validation.errors.map((err) => {
+                        if (err.includes("shape")) return `${err}. Valid shapes: circle, rectangle, triangle, hexagon, pentagon`;
+                        if (err.includes("weapon") && err.includes("type")) return `${err}. Valid weapon types: spinner, flipper, hammer, saw, lance, flamethrower`;
+                        if (err.includes("particleShape")) return `${err}. Valid particleShapes: circle, spark, star, square`;
+                        return err;
+                    });
+                    lastError = `Schema errors: ${fieldErrors.join("; ")}`;
                     console.log(`[generate-bot] ❌ Schema validation failed:`, validation.errors);
                     continue;
                 }
-                console.log(`[generate-bot] ✅ Schema valid: "${validation.sanitized!.name}"`);
+                console.log(`[generate-bot] ✅ Schema valid: "${validation.sanitized!.name}" shape=${validation.sanitized!.shape} weapon=${validation.sanitized!.weapon.type}`);
 
                 // Check behavior code syntax
                 const syntaxCheck = checkBehaviorSyntax(validation.sanitized!.behaviorCode);
                 if (!syntaxCheck.valid) {
-                    lastError = `JS syntax error in behaviorCode: ${syntaxCheck.error}`;
+                    lastError = `JS syntax error in behaviorCode: ${syntaxCheck.error}. The behaviorCode must be valid JavaScript that uses only api methods.`;
                     console.log(`[generate-bot] ❌ Syntax check failed:`, syntaxCheck.error);
                     console.log(`[generate-bot] behaviorCode was: ${validation.sanitized!.behaviorCode.slice(0, 200)}`);
                     continue;
                 }
                 console.log(`[generate-bot] ✅ Behavior code syntax OK`);
+
 
                 // Success!
                 console.log(
@@ -117,11 +126,19 @@ export async function POST(request: NextRequest) {
                 cooldown: 500,
                 range: 50,
             },
+            attackEffect: {
+                color: "#FFD700",
+                secondaryColor: "#888888",
+                particleShape: "spark" as const,
+                intensity: 3,
+                trailLength: 2,
+            },
             behaviorCode:
                 'var enemy = api.getEnemyPosition(); var dist = api.getDistanceToEnemy(); if (dist > 80) { api.moveToward(enemy); } else { api.attack(); } api.rotateTo(api.angleTo(enemy));',
             strategyDescription:
                 "Default bot: chases the enemy and attacks when in range. (LLM generation failed after 5 attempts)",
         };
+
 
         return NextResponse.json({
             bot: defaultBot,

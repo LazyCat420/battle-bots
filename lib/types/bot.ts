@@ -35,6 +35,17 @@ export interface WeaponConfig {
     range: number; // pixels (20-120)
 }
 
+// ── Attack Effect (LLM-customizable animation params) ─────
+export type ParticleShape = "circle" | "spark" | "star" | "square";
+
+export interface AttackEffect {
+    color: string;           // Primary particle color (hex)
+    secondaryColor: string;  // Trail/glow color (hex)
+    particleShape: ParticleShape;
+    intensity: number;       // 1-5 (controls particle count/size)
+    trailLength: number;     // 1-5 (for projectiles/beams)
+}
+
 // ── Bot Definition (what the LLM outputs) ─────────────────
 export interface BotDefinition {
     name: string;
@@ -44,6 +55,14 @@ export interface BotDefinition {
     speed: number; // 1-10
     armor: number; // 1-10
     weapon: WeaponConfig;
+    /** Visual attack animation parameters (auto-filled if LLM omits it) */
+    attackEffect: AttackEffect;
+    /**
+     * Canvas 2D drawing code (JavaScript string).
+     * Receives (ctx, size, color, tick) — draws the bot centered at (0,0).
+     * ctx is already translated/rotated to the bot's position.
+     */
+    drawCode?: string;
     /**
      * The behavior function source code (JavaScript string).
      * It receives (api, tick) and calls api methods to control the bot.
@@ -147,6 +166,10 @@ export const VALID_WEAPONS: WeaponType[] = [
     "flamethrower",
 ];
 
+export const VALID_PARTICLE_SHAPES: ParticleShape[] = [
+    "circle", "spark", "star", "square",
+];
+
 export const BOT_CONSTRAINTS = {
     size: { min: 1, max: 5 },
     speed: { min: 1, max: 10 },
@@ -155,5 +178,9 @@ export const BOT_CONSTRAINTS = {
         damage: { min: 1, max: 10 },
         cooldown: { min: 200, max: 2000 },
         range: { min: 20, max: 120 },
+    },
+    attackEffect: {
+        intensity: { min: 1, max: 5 },
+        trailLength: { min: 1, max: 5 },
     },
 } as const;

@@ -1,14 +1,18 @@
 /**
  * Bot Validator — Validates LLM-generated BotDefinitions
  *
- * Ensures all values are within range and the behavior code compiles.
+ * Ensures all values are within range, auto-fills attackEffect if missing,
+ * and verifies the behavior code compiles.
  */
 import {
     BotDefinition,
+    AttackEffect,
     BOT_CONSTRAINTS,
     VALID_SHAPES,
     VALID_WEAPONS,
+    VALID_PARTICLE_SHAPES,
 } from "@/lib/types/bot";
+import { getDefaultAttackEffect } from "@/lib/engine/attack-effects";
 
 export interface ValidationResult {
     valid: boolean;
@@ -24,6 +28,41 @@ function clamp(value: number, min: number, max: number): number {
 /** Validate a hex color string */
 function isValidHexColor(color: string): boolean {
     return /^#[0-9a-fA-F]{6}$/.test(color);
+}
+
+/**
+ * Sanitize / auto-fill the attackEffect field.
+ * If the LLM provided it, validate and clamp. If not, generate defaults.
+ */
+function sanitizeAttackEffect(
+    raw: Record<string, unknown> | undefined | null,
+    weaponType: string,
+    botColor: string
+): AttackEffect {
+    // If no attackEffect provided, generate defaults from weapon type
+    if (!raw || typeof raw !== "object") {
+        return getDefaultAttackEffect(weaponType as never, botColor);
+    }
+
+    const def = getDefaultAttackEffect(weaponType as never, botColor);
+
+    return {
+        color: typeof raw.color === "string" && isValidHexColor(raw.color as string)
+            ? (raw.color as string)
+            : def.color,
+        secondaryColor: typeof raw.secondaryColor === "string" && isValidHexColor(raw.secondaryColor as string)
+            ? (raw.secondaryColor as string)
+            : def.secondaryColor,
+        particleShape: typeof raw.particleShape === "string" && VALID_PARTICLE_SHAPES.includes(raw.particleShape as never)
+            ? (raw.particleShape as AttackEffect["particleShape"])
+            : def.particleShape,
+        intensity: typeof raw.intensity === "number"
+            ? clamp(raw.intensity, BOT_CONSTRAINTS.attackEffect.intensity.min, BOT_CONSTRAINTS.attackEffect.intensity.max)
+            : def.intensity,
+        trailLength: typeof raw.trailLength === "number"
+            ? clamp(raw.trailLength, BOT_CONSTRAINTS.attackEffect.trailLength.min, BOT_CONSTRAINTS.attackEffect.trailLength.max)
+            : def.trailLength,
+    };
 }
 
 /**
@@ -126,6 +165,14 @@ export function validateBotDefinition(raw: unknown): ValidationResult {
             cooldown: clamp(weapon.cooldown, BOT_CONSTRAINTS.weapon.cooldown.min, BOT_CONSTRAINTS.weapon.cooldown.max),
             range: clamp(weapon.range, BOT_CONSTRAINTS.weapon.range.min, BOT_CONSTRAINTS.weapon.range.max),
         },
+        // Auto-fill attackEffect with sensible defaults if LLM omits it
+        attackEffect: sanitizeAttackEffect(
+            def.attackEffect as Record<string, unknown> | undefined,
+            weapon.type,
+            typedDef.color
+        ),
+        // drawCode: optional Canvas 2D drawing code (validated separately)
+        drawCode: sanitizeDrawCode(def.drawCode as string | undefined),
         behaviorCode: typedDef.behaviorCode,
         strategyDescription: typedDef.strategyDescription || "No strategy description provided.",
     };
@@ -140,7 +187,6 @@ export function validateBotDefinition(raw: unknown): ValidationResult {
 export function checkBehaviorSyntax(code: string): { valid: boolean; error?: string } {
     try {
         // Try to create a function from the code string (parse only, don't execute)
-        // eslint-disable-next-line no-new-func
         new Function("api", "tick", code);
         return { valid: true };
     } catch (e: unknown) {
@@ -148,3 +194,40 @@ export function checkBehaviorSyntax(code: string): { valid: boolean; error?: str
         return { valid: false, error: `Syntax error in behavior code: ${message}` };
     }
 }
+
+/**
+ * Validate and sanitize drawCode.
+ * Returns the code if valid, undefined if missing/invalid.
+ * This allows ArenaCanvas to fall back to shape-based rendering.
+ */
+function sanitizeDrawCode(code: string | undefined): string | undefined {
+    if (!code || typeof code !== "string" || code.trim().length === 0) {
+        return undefined;
+    }
+
+    // Cap length
+    const trimmed = code.slice(0, 600);
+
+    // Syntax check — try to compile as a function
+    try {
+        new Function("ctx", "size", "color", "tick", trimmed);
+        return trimmed;
+    } catch {
+        console.warn(`[validator] drawCode syntax invalid, falling back to shape rendering`);
+        return undefined;
+    }
+}
+
+/**
+ * Check drawCode syntax separately (for the route's explicit check).
+ */
+export function checkDrawCodeSyntax(code: string): { valid: boolean; error?: string } {
+    try {
+        new Function("ctx", "size", "color", "tick", code);
+        return { valid: true };
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        return { valid: false, error: `Syntax error in drawCode: ${message}` };
+    }
+}
+

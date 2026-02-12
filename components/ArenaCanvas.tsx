@@ -3,28 +3,17 @@
 /**
  * Arena Canvas — 2D top-down battle arena renderer.
  *
- * Renders bot shapes, weapons, health bars, damage particles,
- * and arena borders on an HTML5 canvas.
+ * Renders bot shapes, weapon attack effects (via attack-effects.ts),
+ * health bars, damage particles, and arena borders on an HTML5 canvas.
  */
 import { useRef, useEffect, useCallback } from "react";
 import { GameState, BotState, DamageEvent } from "@/lib/types/bot";
 import { ARENA_WIDTH, ARENA_HEIGHT } from "@/lib/engine/game-engine";
+import { renderAttackEffect, renderWeaponIdle, spawnAttackParticles, drawParticleShape, EffectParticle } from "@/lib/engine/attack-effects";
 
 interface ArenaCanvasProps {
     gameState: GameState | null;
     countdown?: number;
-}
-
-// ── Particle system for damage effects ────────────────────
-interface Particle {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    life: number;
-    maxLife: number;
-    color: string;
-    size: number;
 }
 
 const SIZE_TO_RADIUS: Record<number, number> = {
@@ -37,33 +26,29 @@ const SIZE_TO_RADIUS: Record<number, number> = {
 
 export default function ArenaCanvas({ gameState, countdown }: ArenaCanvasProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const particlesRef = useRef<Particle[]>([]);
+    const particlesRef = useRef<EffectParticle[]>([]);
     const animFrameRef = useRef<number>(0);
+    const tickRef = useRef<number>(0);
 
-    // Spawn particles from damage events
-    const spawnDamageParticles = useCallback((events: DamageEvent[]) => {
+    // Spawn particles from damage events using attacker's effect colors
+    const spawnDamageParticles = useCallback((events: DamageEvent[], bots: [BotState, BotState]) => {
         for (const event of events) {
-            const count = Math.ceil(event.damage * 2);
-            for (let i = 0; i < count; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = 1 + Math.random() * 3;
-                particlesRef.current.push({
-                    x: event.position.x,
-                    y: event.position.y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    life: 20 + Math.random() * 15,
-                    maxLife: 35,
-                    color: `hsl(${30 + Math.random() * 30}, 100%, ${50 + Math.random() * 30}%)`,
-                    size: 2 + Math.random() * 3,
-                });
+            const attacker = bots.find((b) => b.id === event.attackerId);
+            if (attacker) {
+                const newParticles = spawnAttackParticles(
+                    attacker,
+                    event.position.x,
+                    event.position.y,
+                    event.damage
+                );
+                particlesRef.current.push(...newParticles);
             }
         }
     }, []);
 
     // Draw a bot shape
     const drawBot = useCallback(
-        (ctx: CanvasRenderingContext2D, bot: BotState, playerIndex: number) => {
+        (ctx: CanvasRenderingContext2D, bot: BotState, playerIndex: number, tick: number) => {
             const { position, angle, definition, isAttacking } = bot;
             const radius = SIZE_TO_RADIUS[Math.round(definition.size)] || 25;
 
@@ -71,10 +56,10 @@ export default function ArenaCanvas({ gameState, countdown }: ArenaCanvasProps) 
             ctx.translate(position.x, position.y);
             ctx.rotate(angle);
 
-            // Glow effect when attacking
+            // Glow effect when attacking — uses attackEffect colors
             if (isAttacking) {
-                ctx.shadowColor = definition.color;
-                ctx.shadowBlur = 20;
+                ctx.shadowColor = definition.attackEffect.color;
+                ctx.shadowBlur = 15 + definition.attackEffect.intensity * 3;
             }
 
             // Bot body
@@ -117,6 +102,7 @@ export default function ArenaCanvas({ gameState, countdown }: ArenaCanvasProps) 
             }
             ctx.fill();
             ctx.stroke();
+            ctx.shadowBlur = 0;
 
             // Direction indicator (front arrow)
             ctx.fillStyle = "rgba(255,255,255,0.8)";
@@ -127,54 +113,11 @@ export default function ArenaCanvas({ gameState, countdown }: ArenaCanvasProps) 
             ctx.closePath();
             ctx.fill();
 
-            // Weapon visualization
+            // Weapon attack effect or idle animation
             if (isAttacking) {
-                ctx.strokeStyle = "#FFD700";
-                ctx.lineWidth = 3;
-                const weaponRange = definition.weapon.range;
-
-                switch (definition.weapon.type) {
-                    case "spinner":
-                        ctx.beginPath();
-                        ctx.arc(0, 0, radius + 8, 0, Math.PI * 2);
-                        ctx.stroke();
-                        break;
-                    case "hammer":
-                        ctx.beginPath();
-                        ctx.moveTo(radius, -8);
-                        ctx.lineTo(radius + weaponRange * 0.5, -8);
-                        ctx.lineTo(radius + weaponRange * 0.5, 8);
-                        ctx.lineTo(radius, 8);
-                        ctx.stroke();
-                        break;
-                    case "lance":
-                        ctx.beginPath();
-                        ctx.moveTo(radius, 0);
-                        ctx.lineTo(radius + weaponRange * 0.7, 0);
-                        ctx.stroke();
-                        break;
-                    case "saw":
-                        ctx.beginPath();
-                        ctx.arc(radius + 10, 0, 10, 0, Math.PI * 2);
-                        ctx.stroke();
-                        break;
-                    case "flipper":
-                        ctx.beginPath();
-                        ctx.moveTo(radius, -10);
-                        ctx.quadraticCurveTo(radius + 15, 0, radius, 10);
-                        ctx.stroke();
-                        break;
-                    case "flamethrower":
-                        ctx.fillStyle = "rgba(255, 100, 0, 0.4)";
-                        ctx.beginPath();
-                        ctx.moveTo(radius, -5);
-                        ctx.lineTo(radius + weaponRange * 0.6, -15);
-                        ctx.lineTo(radius + weaponRange * 0.6, 15);
-                        ctx.lineTo(radius, 5);
-                        ctx.closePath();
-                        ctx.fill();
-                        break;
-                }
+                renderAttackEffect(ctx, bot, radius, tick);
+            } else {
+                renderWeaponIdle(ctx, bot, radius, tick);
             }
 
             ctx.restore();
@@ -216,6 +159,9 @@ export default function ArenaCanvas({ gameState, countdown }: ArenaCanvasProps) 
         if (!ctx) return;
 
         const render = () => {
+            tickRef.current++;
+            const tick = tickRef.current;
+
             // Clear
             ctx.clearRect(0, 0, ARENA_WIDTH, ARENA_HEIGHT);
 
@@ -269,13 +215,13 @@ export default function ArenaCanvas({ gameState, countdown }: ArenaCanvasProps) 
             ctx.fill();
 
             if (gameState) {
-                // Draw bots
-                drawBot(ctx, gameState.bots[0], 0);
-                drawBot(ctx, gameState.bots[1], 1);
+                // Draw bots with attack effects
+                drawBot(ctx, gameState.bots[0], 0, tick);
+                drawBot(ctx, gameState.bots[1], 1, tick);
 
-                // Spawn damage particles
+                // Spawn damage particles using attacker's effect colors
                 if (gameState.damageEvents.length > 0) {
-                    spawnDamageParticles(gameState.damageEvents);
+                    spawnDamageParticles(gameState.damageEvents, gameState.bots);
                 }
 
                 // Update and render particles
@@ -287,6 +233,7 @@ export default function ArenaCanvas({ gameState, countdown }: ArenaCanvasProps) 
                     p.vx *= 0.95;
                     p.vy *= 0.95;
                     p.life--;
+                    p.rotation += p.rotationSpeed;
 
                     if (p.life <= 0) {
                         particles.splice(i, 1);
@@ -296,9 +243,7 @@ export default function ArenaCanvas({ gameState, countdown }: ArenaCanvasProps) 
                     const alpha = p.life / p.maxLife;
                     ctx.globalAlpha = alpha;
                     ctx.fillStyle = p.color;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
-                    ctx.fill();
+                    drawParticleShape(ctx, p.x, p.y, p.size * alpha, p.shape, p.rotation);
                 }
                 ctx.globalAlpha = 1;
 

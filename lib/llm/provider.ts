@@ -136,11 +136,10 @@ async function callOpenAICompatible(
             ],
             stream: false,
             format: "json",
-            options: { temperature: 0.7, num_predict: 2048 },
+            options: { temperature: 0.5, num_predict: 2048 },
         };
     } else if (config.provider === "lmstudio") {
-        // LM Studio v1 API: base/api/v1/chat/completions
-        // NOTE: LM Studio does NOT support response_format: json_object.
+        // LM Studio requires 'json_schema' (with full schema object) not 'json_object'.
         // JSON output is enforced via the system prompt instead.
         endpoint = `${config.baseUrl}/v1/chat/completions`;
         body = {
@@ -149,8 +148,8 @@ async function callOpenAICompatible(
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },
             ],
-            temperature: 0.7,
-            max_tokens: 1024,
+            temperature: 0.5,
+            max_tokens: 2048,
         };
     } else {
         // OpenAI
@@ -161,7 +160,7 @@ async function callOpenAICompatible(
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },
             ],
-            temperature: 0.7,
+            temperature: 0.5,
             max_tokens: 2048,
             response_format: { type: "json_object" },
         };
@@ -224,7 +223,7 @@ async function callAnthropic(
             max_tokens: 2048,
             system: systemPrompt,
             messages: [{ role: "user", content: userPrompt }],
-            temperature: 0.7,
+            temperature: 0.5,
         }),
     });
 
@@ -267,7 +266,7 @@ async function callGemini(
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents: [{ parts: [{ text: userPrompt }] }],
             generationConfig: {
-                temperature: 0.7,
+                temperature: 0.5,
                 maxOutputTokens: 2048,
                 responseMimeType: "application/json",
             },
