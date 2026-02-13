@@ -206,7 +206,7 @@ function sanitizeDrawCode(code: string | undefined): string | undefined {
     }
 
     // Cap length
-    let sanitized = code.slice(0, 1200);
+    let sanitized = code.slice(0, 1500);
 
     // Log raw input for debugging
     console.log(`[validator] drawCode raw input (${code.length} chars): ${code.slice(0, 200)}...`);

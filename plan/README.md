@@ -18,9 +18,13 @@ This folder contains the complete design specification for the BattleBots physic
 | 09 | `09-edge-cases-spray-weapons.md` | Continuous damage, cone hitboxes, DoT system |
 | 10 | `10-llm-understanding-animations.md` | Weapon archetype templates for LLM prompt, few-shot examples |
 | 11 | `11-validation-and-balance.md` | Full validation pipeline, auto-correction, balance scoring |
+| 12 | `12-robot-parts-library.md` | Modular robot component library — LEGO-like parts for LLM drawCode |
+| 13 | `13-3d-bot-generation-pipeline.md` | SAM3D/TripoSR feasibility, VRAM management, mesh merging research |
+| 14 | `14-3d-master-upgrade-plan.md` | ★ Master plan: 2D → 3D upgrade, experiments, architecture, phases |
 
 ## Reading Order
 
 **For understanding the framework**: 00 → 02 → 03 → 04 → 06  
 **For physics implementation**: 01 → 03 → 05 → 07/08/09  
-**For LLM prompt design**: 06 → 10 → 04 → 11  
+**For LLM prompt design**: 06 → 10 → 12 → 04 → 11  
+**For 3D upgrade**: 13 → 14 → 12 → 01
