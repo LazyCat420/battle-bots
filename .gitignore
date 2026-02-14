@@ -39,3 +39,42 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# =========================
+# 3D models & large binaries
+# =========================
+*.glb
+*.gltf
+*.fbx
+*.obj
+*.stl
+*.ply
+*.usdz
+
+# ML model weights
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.ckpt
+
+# generated bot parts
+public/parts/generated/
+
+# pretrained weights
+**/pretrained_weights/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Hunyuan / TripoSG / TripoSR model repos (cloned locally)
+tools/3d-gen/Hunyuan3D-model/
+tools/3d-gen/TripoSG-model/
+tools/3d-gen/TripoSR/
+
+# UniRig examples (large sample meshes)
+tools/UniRig/examples/
