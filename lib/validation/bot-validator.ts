@@ -7,12 +7,14 @@
 import {
     BotDefinition,
     AttackEffect,
+    BotAssembly3D,
     BOT_CONSTRAINTS,
     VALID_SHAPES,
     VALID_WEAPONS,
     VALID_PARTICLE_SHAPES,
 } from "@/lib/types/bot";
 import { getDefaultAttackEffect } from "@/lib/engine/attack-effects";
+import { PARTS_MANIFEST } from "@/lib/3d/parts-library";
 
 export interface ValidationResult {
     valid: boolean;
@@ -173,6 +175,10 @@ export function validateBotDefinition(raw: unknown): ValidationResult {
         ),
         // drawCode: optional Canvas 2D drawing code (validated separately)
         drawCode: sanitizeDrawCode(def.drawCode as string | undefined),
+        // assembly3d: optional 3D assembly blueprint (validated + auto-filled)
+        assembly3d: sanitizeAssembly3d(def.assembly3d as Record<string, unknown> | undefined),
+        // customPartCode: optional Three.js geometry code
+        customPartCode: sanitizeCustomPartCode(def.customPartCode as string | undefined),
         behaviorCode: typedDef.behaviorCode,
         strategyDescription: typedDef.strategyDescription || "No strategy description provided.",
     };
@@ -248,6 +254,107 @@ export function checkDrawCodeSyntax(code: string): { valid: boolean; error?: str
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         return { valid: false, error: `Syntax error in drawCode: ${message}` };
+    }
+}
+
+// ── 3D Assembly Validation ────────────────────────────────
+
+const VALID_BODIES = PARTS_MANIFEST.parts.filter(p => p.category === "body").map(p => p.id);
+const VALID_WEAPONS_3D = PARTS_MANIFEST.parts.filter(p => p.category === "weapon").map(p => p.id);
+const VALID_LOCOMOTION = PARTS_MANIFEST.parts.filter(p => p.category === "locomotion").map(p => p.id);
+const VALID_ARMOR = PARTS_MANIFEST.parts.filter(p => p.category === "armor").map(p => p.id);
+
+function pickRandom<T>(arr: T[]): T {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getValidSlots(bodyId: string, prefix: string): string[] {
+    const body = PARTS_MANIFEST.parts.find(p => p.id === bodyId);
+    if (!body) return [];
+    return body.attachments.filter(a => a.name.startsWith(prefix)).map(a => a.name);
+}
+
+/**
+ * Validate and sanitize the assembly3d field.
+ * If missing or invalid, auto-fill with random valid parts.
+ */
+function sanitizeAssembly3d(
+    raw: Record<string, unknown> | undefined
+): BotAssembly3D {
+    // Default: random assembly if LLM doesn't provide one
+    const fallbackBody = pickRandom(VALID_BODIES);
+    const fallbackWeaponSlots = getValidSlots(fallbackBody, "weapon_");
+
+    const fallback: BotAssembly3D = {
+        body: fallbackBody,
+        weapon: pickRandom(VALID_WEAPONS_3D),
+        weaponSlot: fallbackWeaponSlots.length > 0 ? pickRandom(fallbackWeaponSlots) : "weapon_top",
+        locomotion: pickRandom(VALID_LOCOMOTION),
+    };
+
+    if (!raw || typeof raw !== "object") {
+        console.log("[validator] ℹ️ No assembly3d provided, auto-filling with random parts");
+        return fallback;
+    }
+
+    // Validate each field, falling back to random if invalid
+    const body = typeof raw.body === "string" && VALID_BODIES.includes(raw.body)
+        ? raw.body : fallback.body;
+
+    const weapon = typeof raw.weapon === "string" && VALID_WEAPONS_3D.includes(raw.weapon)
+        ? raw.weapon : fallback.weapon;
+
+    const locomotion = typeof raw.locomotion === "string" && VALID_LOCOMOTION.includes(raw.locomotion)
+        ? raw.locomotion : fallback.locomotion;
+
+    // Validate weapon slot against body's actual slots
+    const validWeaponSlots = getValidSlots(body, "weapon_");
+    const weaponSlot = typeof raw.weaponSlot === "string" && validWeaponSlots.includes(raw.weaponSlot)
+        ? raw.weaponSlot
+        : (validWeaponSlots.length > 0 ? validWeaponSlots[0] : "weapon_top");
+
+    // Armor is optional
+    let armor: string | undefined;
+    let armorSlot: string | undefined;
+    if (typeof raw.armor === "string" && VALID_ARMOR.includes(raw.armor)) {
+        armor = raw.armor;
+        const validArmorSlots = getValidSlots(body, "armor_");
+        armorSlot = typeof raw.armorSlot === "string" && validArmorSlots.includes(raw.armorSlot)
+            ? raw.armorSlot
+            : (validArmorSlots.length > 0 ? validArmorSlots[0] : "armor_front");
+    }
+
+    const result: BotAssembly3D = { body, weapon, weaponSlot, locomotion };
+    if (armor) {
+        result.armor = armor;
+        result.armorSlot = armorSlot;
+    }
+
+    console.log(`[validator] ✅ assembly3d: body=${body} weapon=${weapon}@${weaponSlot} loco=${locomotion}${armor ? ` armor=${armor}@${armorSlot}` : ""}`);
+    return result;
+}
+
+/**
+ * Validate optional customPartCode (Three.js geometry code).
+ * Returns the code if syntax-valid, undefined otherwise.
+ */
+function sanitizeCustomPartCode(code: string | undefined): string | undefined {
+    if (!code || typeof code !== "string" || code.trim().length === 0) {
+        return undefined;
+    }
+
+    // Length cap: 3000 chars max
+    const trimmed = code.trim().slice(0, 3000);
+
+    try {
+        // Syntax check: must be a valid function body receiving (THREE, color)
+        new Function("THREE", "color", trimmed);
+        console.log(`[validator] ✅ customPartCode syntax OK (${trimmed.length} chars)`);
+        return trimmed;
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`[validator] ❌ customPartCode syntax invalid: ${msg}`);
+        return undefined;
     }
 }
 

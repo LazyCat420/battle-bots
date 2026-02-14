@@ -110,6 +110,12 @@ export async function POST(request: NextRequest) {
                 }
                 console.log(`[generate-bot] ✅ Behavior code syntax OK`);
 
+                // Log assembly3d diagnostic
+                if (validation.sanitized!.assembly3d) {
+                    const a = validation.sanitized!.assembly3d;
+                    console.log(`[generate-bot] 🤖 assembly3d: body=${a.body} weapon=${a.weapon}@${a.weaponSlot} loco=${a.locomotion}${a.armor ? ` armor=${a.armor}@${a.armorSlot}` : ""}`);
+                }
+
 
                 // Success!
                 console.log(

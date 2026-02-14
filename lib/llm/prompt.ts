@@ -40,6 +40,34 @@ DETAILS: LEDs (tiny glowing circle with shadowBlur, animated alpha), vent/exhaus
 COMPOSITION ORDER (draw in this sequence for depth):
 1. Chassis plate (base body) → 2. Wheels/treads (sides) → 3. Armor panels (overlaid) → 4. Motors/actuators (visible mech parts) → 5. Weapon components (front/top) → 6. Joints/brackets (connecting parts) → 7. Details (rivets, LEDs, vents, eyes)
 
+3D PARTS MANIFEST — you MUST also choose parts for the "assembly3d" field.
+Pick one from each category that best matches the bot concept:
+
+BODIES:
+- body_tank: Tank Chassis — low-slung armored box with LED eyes and vent grills (heavy/military bots)
+- body_dome: Dome Body — spherical dome, compact and well-rounded (agile/balanced bots)
+- body_wedge: Wedge Body — angled wedge for ramming, with front plow blade (rammers/flippers)
+- body_biped: Biped Torso — tall upright humanoid torso with visor head (mech/humanoid bots)
+
+WEAPONS:
+- weapon_spinner: Spinner Blade — horizontal spinning bar of death (fast/aggressive)
+- weapon_saw: Saw Disc — circular saw disc, high speed cutting (sustained damage)
+- weapon_hammer: Hammer Arm — overhead pneumatic hammer for crushing blows (slow/powerful)
+- weapon_lance: Jousting Lance — pointed lance/spike for piercing attacks (ranged poking)
+- weapon_flipper: Flipper — pneumatic flipper plate to launch enemies (close-range control)
+
+LOCOMOTION:
+- locomotion_wheels: 4-Wheel Drive — four rubber wheels for fast movement (speed focus)
+- locomotion_treads: Tank Treads — heavy tank treads for maximum traction (armor/stability focus)
+- locomotion_hover: Hover Pads — anti-gravity hover pads for smooth floating (agile/sci-fi)
+
+ARMOR (optional):
+- armor_plow: Plow Shield — heavy front-mounted plow shield (defensive ramming)
+- armor_spikes: Spike Rack — intimidating spike rack for passive damage (aggressive defense)
+
+WEAPON SLOTS: weapon_top, weapon_left, weapon_right, weapon_front
+ARMOR SLOTS: armor_front, armor_top
+
 SCHEMA:
 {
   "name": string (max 30 chars),
@@ -62,6 +90,14 @@ SCHEMA:
     "trailLength": 1-5
   },
   "drawCode": string (JS Canvas2D drawing code, max 1500 chars),
+  "assembly3d": {
+    "body": "body_tank"|"body_dome"|"body_wedge"|"body_biped",
+    "weapon": "weapon_spinner"|"weapon_saw"|"weapon_hammer"|"weapon_lance"|"weapon_flipper",
+    "weaponSlot": "weapon_top"|"weapon_left"|"weapon_right"|"weapon_front",
+    "locomotion": "locomotion_wheels"|"locomotion_treads"|"locomotion_hover",
+    "armor": "armor_plow"|"armor_spikes" (optional),
+    "armorSlot": "armor_front"|"armor_top" (optional, required if armor set)
+  },
   "behaviorCode": string (JS bot AI code, max 300 chars),
   "strategyDescription": string
 }

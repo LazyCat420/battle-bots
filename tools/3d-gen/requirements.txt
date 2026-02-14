@@ -1,0 +1,17 @@
+torch
+torchvision
+torchaudio
+trimesh
+Pillow
+numpy
+rembg
+transformers
+tokenizers
+omegaconf
+einops
+huggingface-hub
+fastapi
+uvicorn[standard]
+python-multipart
+httpx
+duckduckgo_search

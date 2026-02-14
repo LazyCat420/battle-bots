@@ -46,6 +46,22 @@ export interface AttackEffect {
     trailLength: number;     // 1-5 (for projectiles/beams)
 }
 
+// ── 3D Bot Assembly (LLM picks parts from the manifest) ───
+export interface BotAssembly3D {
+    /** Body part ID from the manifest, e.g. "body_tank" */
+    body: string;
+    /** Weapon part ID, e.g. "weapon_spinner" */
+    weapon: string;
+    /** Which attachment slot to mount the weapon, e.g. "weapon_top" */
+    weaponSlot: string;
+    /** Locomotion part ID, e.g. "locomotion_wheels" */
+    locomotion: string;
+    /** Optional armor part ID, e.g. "armor_plow" */
+    armor?: string;
+    /** Which attachment slot for armor, e.g. "armor_front" */
+    armorSlot?: string;
+}
+
 // ── Bot Definition (what the LLM outputs) ─────────────────
 export interface BotDefinition {
     name: string;
@@ -63,6 +79,17 @@ export interface BotDefinition {
      * ctx is already translated/rotated to the bot's position.
      */
     drawCode?: string;
+    /**
+     * 3D assembly blueprint — which parts to use from the manifest.
+     * The Lab page renders this as a Three.js bot.
+     */
+    assembly3d?: BotAssembly3D;
+    /**
+     * Optional custom Three.js code that creates new geometry.
+     * Receives (THREE, color) and must return a THREE.Group.
+     * Used when the LLM wants to create a part that doesn't exist.
+     */
+    customPartCode?: string;
     /**
      * The behavior function source code (JavaScript string).
      * It receives (api, tick) and calls api methods to control the bot.

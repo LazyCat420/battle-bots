@@ -294,77 +294,77 @@ interface PhysicsWorld3D {
 
 ## Implementation Phases
 
-### Phase 0: Lab Environment (Experiments 1-2)
+### Phase 0: Lab Environment (Experiments 1-2) ✅
 
-- [  ] Install Three.js + types
-- [  ] Create `/app/lab/page.tsx` test page
-- [  ] Load and render a .glb model
-- [  ] Merge two models via parent-child hierarchy
-- [  ] Add orbit camera controls
+- [x] Install Three.js + types
+- [x] Create `/app/lab/page.tsx` test page
+- [x] Load and render .glb models
+- [x] Merge models via parent-child hierarchy
+- [x] Add orbit camera controls
 - [ ] Test CSG boolean merge
 
-### Phase 1: 3D Parts Cache (Experiments 3-4)
+### Phase 1: 3D Parts Cache (Experiments 3-4) ✅
 
-- [  ] Set up `tools/3d-gen/` Python project
-- [  ] Install and test TripoSR locally
-- [  ] Generate .glb for each part type in plan 12
-- [  ] Build parts cache in `/public/parts/`
-- [  ] Create VRAM manager Python service
-- [  ] Test unload LLM → generate → reload cycle
+- [x] Set up `tools/3d-gen/` Python project
+- [x] Install and test TripoSR locally
+- [x] Generate .glb for each part type in plan 12
+- [x] Build parts cache in `/public/parts/`
+- [x] Create VRAM manager (lazy load/unload in server.py)
+- [ ] Test unload LLM → generate → reload cycle
 
-### Phase 2: 3D Arena Renderer (Experiment 5)
+### Phase 2: 3D Arena Renderer (Experiment 5) ⬜ NEXT
 
-- [  ] Create `Arena3D.tsx` component (Three.js scene)
-- [  ] 3D arena with floor, walls, lighting, camera
-- [  ] Load assembled bot .glb models into scene
-- [  ] Install `cannon-es` for 3D physics
-- [  ] Create `cannon-adapter.ts` implementing `PhysicsWorld3D`
-- [  ] Bot movement in 3D (constrained to arena floor)
+- [ ] Create `Arena3D.tsx` component (Three.js scene)
+- [ ] 3D arena with floor, walls, lighting, camera
+- [ ] Load assembled bot .glb models into scene
+- [ ] Install `@dimforge/rapier3d-compat` for 3D physics
+- [ ] Create `rapier-adapter.ts` implementing `PhysicsWorld3D`
+- [ ] Bot movement in 3D (constrained to arena floor)
 
-### Phase 3: LLM Integration (Experiment 6)
+### Phase 3: LLM Integration (Experiment 6) ✅
 
-- [  ] Define `BotDefinition3D` schema in `bot.ts`
-- [  ] Update `prompt.ts` with 3D part selection instructions
-- [  ] Create `BotAssembler3D` — takes part list → merged .glb
-- [  ] Update `/api/generate-bot/route.ts` for 3D pipeline
-- [  ] Validator for 3D bot definitions
+- [x] Define `BotAssembly3D` schema in `bot.ts`
+- [x] Update `prompt.ts` with 3D part selection instructions
+- [x] Create assembly validator + auto-fill
+- [x] Update `/api/generate-bot/route.ts` for 3D pipeline
+- [x] Validator for 3D bot definitions
 
-### Phase 4: 3D Combat System
+### Phase 4: 3D Combat System ⬜
 
-- [  ] Port `game-engine.ts` to use `PhysicsWorld3D`
-- [  ] 3D behavior API (add Y-axis sensing)
-- [  ] 3D weapon range detection
-- [  ] 3D attack effects (particle system with Three.js)
-- [  ] 3D HUD overlay (health bars above models)
+- [ ] Port `game-engine.ts` to use `PhysicsWorld3D`
+- [ ] 3D behavior API (add Y-axis sensing)
+- [ ] 3D weapon range detection
+- [ ] 3D attack effects (particle system with Three.js)
+- [ ] 3D HUD overlay (health bars above models)
 
-### Phase 5: Rigging & Animation (Advanced)
+### Phase 5: Rigging & Animation ⬜
 
-- [  ] Simple idle animations (weapon spin, body bob)
-- [  ] Attack animations per weapon type
-- [  ] Hit reaction animations
-- [  ] Auto-rigging with basic skeleton
-- [  ] Skeleton merging for Frankenstein models
+- [x] Skinned mesh loader (`skinned-mesh-loader.ts`)
+- [ ] Simple idle animations (weapon spin, body bob)
+- [ ] Attack animations per weapon type
+- [ ] Hit reaction animations
+- [x] Auto-rigging with UniRig pipeline
+- [ ] Skeleton merging for Frankenstein models
+
+### Phase 6: Frontend ↔ Backend Wiring ⬜
+
+- [ ] Add "Generate 3D" button to Lab page → calls `POST /generate`
+- [ ] Add "Rig Bot" button → calls `POST /rig`
+- [ ] Add SkeletonHelper visualization toggle
+- [ ] Wire up VRAM status display from `GET /status`
+- [ ] Full end-to-end test: LLM → TripoSR → merge → UniRig → SkinnedMesh
 
 ---
 
-## Key Decisions Needed
+## Key Decisions (Resolved)
 
-1. **3D Physics Engine**: Cannon.js (mature, well-documented) vs Rapier3D (faster, Rust-based WASM) vs Ammo.js (Bullet port, most realistic)
-   - **Recommendation**: `cannon-es` — simplest, TypeScript, good community
+1. **3D Physics Engine**: `@dimforge/rapier3d-compat` — Rust-based WASM, fastest, modern TS support
 
-2. **Keep 2D Mode?**: Run both 2D and 3D side by side, or full replace?
-   - **Recommendation**: Keep 2D as fallback, add 3D as new mode via toggle
+2. **Keep 2D Mode?**: Yes — 2D stays as default, 3D via toggle or dedicated Lab page
 
-3. **Bot Behavior in 3D**: The current `behaviorCode` API works on a 2D plane. In 3D:
-   - Bots still fight on a flat arena floor (Y=0)
-   - `moveToward`/`moveAway` work the same but use Vec3
-   - No flying for now — constrain Y axis
-   - **This means behaviorCode barely changes** — big win
+3. **Bot Behavior in 3D**: Same flat arena floor — behaviorCode barely changes
 
-4. **LM Studio VRAM Control**: LM Studio may not expose an API to unload models.
-   - Option 1: Use Ollama instead (has `ollama stop` command)
-   - Option 2: Use LM Studio's CLI mode
-   - Option 3: Kill/restart LM Studio process (crude but works)
+4. **LM Studio VRAM Control**: Lazy Python-side management in `server.py` — TripoSR loads on first use, unloads when UniRig needs VRAM
 
 ---
 
