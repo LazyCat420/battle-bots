@@ -68,6 +68,29 @@ ARMOR (optional):
 WEAPON SLOTS: weapon_top, weapon_left, weapon_right, weapon_front
 ARMOR SLOTS: armor_front, armor_top
 
+IMAGE-TO-3D ASSEMBLY PARTS — for chimera/custom bots, you can also specify "assemblyParts" to generate 3D meshes from images and merge them:
+
+ATTACHMENT SLOTS (where parts attach on the base mesh):
+head, left_hand, right_hand, left_arm, right_arm, chest_front, chest_back, waist, left_leg, right_leg, top, bottom
+
+RULES for assemblyParts:
+- "baseDescription" = the main body/creature (should be in T-pose if humanoid)
+- "baseSearchQuery" = image search query for the base (add "white background" for best results)
+- Each attachment has: description, searchQuery, slot, scale (0.1-2.0)
+- Use scale to make attachments proportional (e.g. 0.3 for hands, 0.5 for weapons)
+- searchQuery should include "white background" or "isolated" for clean generation
+- You can use the SAME slot on both sides for symmetry (left_hand + right_hand)
+
+Example assemblyParts:
+{
+  "baseDescription": "muscular humanoid fighter",
+  "baseSearchQuery": "muscular man T-pose white background",
+  "attachments": [
+    {"description": "chainsaw", "searchQuery": "chainsaw side view white background", "slot": "left_hand", "scale": 0.4},
+    {"description": "chainsaw", "searchQuery": "chainsaw side view white background", "slot": "right_hand", "scale": 0.4}
+  ]
+}
+
 SCHEMA:
 {
   "name": string (max 30 chars),
@@ -98,6 +121,11 @@ SCHEMA:
     "armor": "armor_plow"|"armor_spikes" (optional),
     "armorSlot": "armor_front"|"armor_top" (optional, required if armor set)
   },
+  "assemblyParts": {
+    "baseDescription": string,
+    "baseSearchQuery": string,
+    "attachments": [{"description": string, "searchQuery": string, "slot": "head"|"left_hand"|"right_hand"|"left_arm"|"right_arm"|"chest_front"|"chest_back"|"waist"|"left_leg"|"right_leg"|"top"|"bottom", "scale": 0.1-2.0}]
+  } (optional — use instead of assembly3d for chimera/custom bots),
   "behaviorCode": string (JS bot AI code, max 300 chars),
   "strategyDescription": string
 }

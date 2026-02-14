@@ -62,6 +62,41 @@ export interface BotAssembly3D {
     armorSlot?: string;
 }
 
+// ── Image-to-3D Assembly Parts (LLM describes parts + slots) ──
+
+/** Valid attachment slot names for mesh assembly */
+export const ASSEMBLY_SLOTS = [
+    "head", "left_hand", "right_hand",
+    "left_arm", "right_arm",
+    "chest_front", "chest_back",
+    "waist", "left_leg", "right_leg",
+    "top", "bottom",
+] as const;
+
+export type AssemblySlot = typeof ASSEMBLY_SLOTS[number];
+
+/** A single attachment part to be generated and placed on the base mesh */
+export interface AssemblyAttachment {
+    /** What this part is, e.g. "chainsaw", "crab claw" */
+    description: string;
+    /** Image search query for TripoSG generation */
+    searchQuery: string;
+    /** Named slot on the base mesh where this attaches */
+    slot: AssemblySlot;
+    /** Scale relative to base mesh (0.1-2.0, default 1.0) */
+    scale?: number;
+}
+
+/** LLM-driven assembly: base mesh + attachments at named slots */
+export interface AssemblyParts {
+    /** Description of the base body/creature */
+    baseDescription: string;
+    /** Image search query for the base mesh */
+    baseSearchQuery: string;
+    /** Parts to attach at named slots */
+    attachments: AssemblyAttachment[];
+}
+
 // ── Bot Definition (what the LLM outputs) ─────────────────
 export interface BotDefinition {
     name: string;
@@ -84,6 +119,11 @@ export interface BotDefinition {
      * The Lab page renders this as a Three.js bot.
      */
     assembly3d?: BotAssembly3D;
+    /**
+     * Image-to-3D assembly blueprint — LLM describes parts and slots.
+     * The pipeline generates each part via TripoSG and merges them.
+     */
+    assemblyParts?: AssemblyParts;
     /**
      * Optional custom Three.js code that creates new geometry.
      * Receives (THREE, color) and must return a THREE.Group.

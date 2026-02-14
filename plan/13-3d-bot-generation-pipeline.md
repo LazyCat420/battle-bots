@@ -13,9 +13,9 @@ LLM generates a bot concept → user provides/searches for reference images → 
 ```text
 ┌─────────────┐    ┌──────────────┐    ┌──────────────┐
 │  1. LLM     │───►│ 2. Reference │───►│ 3. Image→3D  │
-│  Bot JSON   │    │ Image        │    │ TripoSR      │
-│  (LM Studio)│    │ (upload/     │    │ (6-8GB VRAM) │
-│  ~20GB VRAM │    │  search)     │    │ 8-15s/part   │
+│  Bot JSON   │    │ Image        │    │ TripoSG      │
+│  (LM Studio)│    │ (upload/     │    │ (8GB+ VRAM)  │
+│  ~20GB VRAM │    │  search)     │    │ ~20s/part    │
 └─────────────┘    └──────────────┘    └──────┬───────┘
                                               │ .glb per part
                                               ▼
@@ -38,8 +38,9 @@ LLM generates a bot concept → user provides/searches for reference images → 
 | 1. LLM | Assembly validator + auto-fill | ✅ Done | `lib/validation/bot-validator.ts` |
 | 1. LLM | Assembly3d logging | ✅ Done | `app/api/generate-bot/route.ts` |
 | 2. Reference | DuckDuckGo search + rembg | ✅ Done | `tools/3d-gen/server.py` `/search-image` |
-| 3. Image→3D | TripoSR FastAPI endpoint | ✅ Done | `tools/3d-gen/server.py` `/generate` |
+| 3. Image→3D | TripoSG FastAPI endpoint | ✅ Done | `tools/3d-gen/server.py` `/generate` |
 | 4. Merge | trimesh CPU merge | ✅ Done | `tools/3d-gen/server.py` `/merge` |
+| 4. Assembly | Slot-based LLM assembly | ✅ Done | `tools/3d-gen/server.py` `/assemble` |
 | 5. Auto-Rig | UniRig skeleton + skin | ✅ Done | `tools/3d-gen/server.py` `/rig` |
 | 5. Auto-Rig | Skin weights JSON export | ✅ Done | `tools/UniRig/export_skin_json.py` |
 | 6. Viewer | 14 procedural parts library | ✅ Done | `lib/3d/parts-library.ts` |
@@ -56,8 +57,8 @@ LLM generates a bot concept → user provides/searches for reference images → 
 | Component | VRAM | Duration | Notes |
 | --- | --- | --- | --- |
 | LM Studio LLM | ~20GB | ~2s generate | Unload before mesh gen |
-| TripoSR | 6-8GB | 8-15s/part | ~3 parts per bot |
-| rembg (bg removal) | ~1GB | <2s | Can run alongside TripoSR |
+| TripoSG | 8GB+ | ~20s/part | ~3 parts per bot |
+| RMBG-1.4 (bg removal) | ~1GB | <2s | Runs alongside TripoSG |
 | UniRig skeleton | ~6-8GB | ~30s | Predicts bone hierarchy |
 | UniRig skin | ~8GB | ~2.5min | Predicts vertex weights |
 | Three.js rendering | 0 (WebGL) | realtime | Runs in browser |
@@ -98,13 +99,13 @@ Parts manifest in prompt covers 4 bodies, 5 weapons, 3 locomotion, 2 armor = **1
 
 ---
 
-## Stage 3: Image → 3D Mesh (TripoSR) ✅
+## Stage 3: Image → 3D Mesh (TripoSG) ✅
 
 | Property | Value |
 | --- | --- |
-| Repo | [VAST-AI/TripoSR](https://github.com/VAST-AI/TripoSR) |
-| VRAM | 6-8GB (resolution 256) |
-| Speed | 8-15 seconds per mesh |
+| Repo | [VAST-AI/TripoSG](https://github.com/VAST-AI/TripoSG) |
+| VRAM | 8GB+ |
+| Speed | ~20 seconds per mesh |
 | Output | `.glb` mesh |
 | License | MIT |
 
@@ -202,9 +203,10 @@ uvicorn server:app --host 0.0.0.0 --port 8100 --reload
 | --- | --- | --- |
 | `/health` | GET | Health check |
 | `/status` | GET | GPU/VRAM info |
-| `/generate` | POST | Image → GLB via TripoSR |
+| `/generate` | POST | Image → GLB via TripoSG |
 | `/search-image` | POST | DuckDuckGo + rembg |
 | `/merge` | POST | Combine GLBs via trimesh |
+| `/assemble` | POST | LLM-driven slot assembly |
 | `/rig` | POST | UniRig auto-rigging |
 | `/docs` | GET | Swagger UI (auto-generated) |
 
@@ -220,9 +222,10 @@ uvicorn server:app --host 0.0.0.0 --port 8100 --reload
 
 ### Phase 2: Image → 3D Mesh Generation ✅
 
-- [x] Python FastAPI server with TripoSR
+- [x] Python FastAPI server with TripoSG
 - [x] VRAM manager with lazy load/unload
 - [x] DuckDuckGo image search + rembg
+- [x] Slot-based assembly (`/assemble` endpoint)
 
 ### Phase 3: Auto-Rigging + Skin Weights ✅
 
